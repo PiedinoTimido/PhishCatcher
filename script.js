@@ -126,7 +126,7 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
         verdictBadge.classList.add('warning');
     }
 
-    // B. Estrazione Link e Scansione VirusTotal (se la chiave è presente)
+    // B. Estrazione Link e Scansione VirusTotal
     const extractedUrls = extractUrls(body);
 
     if (extractedUrls.length === 0) {
@@ -139,12 +139,16 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
             const vtResult = await scanUrlVirusTotal(extractedUrls[0]);
             vtOutput.innerHTML = vtResult;
         } catch (err) {
-            vtOutput.textContent = 'VirusTotal Scan Error (CORS or Invalid Key): ' + err.message;
+            // Messaggio di errore dettagliato in caso di fallimento multiplo (CORS + Proxy)
+            vtOutput.innerHTML = `⚠️ <strong>Network/CORS Restriction Active:</strong><br>
+            Direct and Proxy API calls to VirusTotal were blocked (common in client-side serverless apps).<br>
+            <em>URL extracted for manual check:</em> <code>${extractedUrls[0]}</code><br>
+            <small style="color: var(--text-muted);">Technical details: ${err.message}</small>`;
         }
     }
 });
 
-// Funzione: Chiamata API a Gemini con gestione errori
+// Funzione: Chiamata API a Gemini
 async function analyzeWithGemini(sender, subject, body) {
     const prompt = `Act as a SOC Cybersecurity Analyst. Analyze this email for Phishing:
     Sender: ${sender}
@@ -169,13 +173,8 @@ async function analyzeWithGemini(sender, subject, body) {
 
     const data = await response.json();
 
-    if (data.error) {
-        throw new Error(`API Error ${data.error.code}: ${data.error.message}`);
-    }
-
-    if (!data.candidates || data.candidates.length === 0) {
-        throw new Error('No response candidates returned by Gemini. Check prompt or safety settings.');
-    }
+    if (data.error) throw new Error(`API Error ${data.error.code}: ${data.error.message}`);
+    if (!data.candidates || data.candidates.length === 0) throw new Error('No response candidates returned.');
 
     const rawText = data.candidates[0].content.parts[0].text;
     const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -188,24 +187,42 @@ function extractUrls(text) {
     return text.match(urlRegex) || [];
 }
 
-// Funzione: Chiamata API a VirusTotal (URL Lookup)
+// Funzione: Chiamata API a VirusTotal con Fallback Proxy
 async function scanUrlVirusTotal(targetUrl) {
     const urlId = btoa(targetUrl).replace(/=/g, '');
-    const apiUrl = `https://corsproxy.io/?` + encodeURIComponent(`https://www.virustotal.com/api/v3/urls/${urlId}`);
+    const directApiUrl = `https://www.virustotal.com/api/v3/urls/${urlId}`;
+    const proxyApiUrl = `https://corsproxy.io/?${encodeURIComponent(directApiUrl)}`;
 
-    const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-            'x-apikey': vtKey
+    let response;
+
+    try {
+        // Tentativo 1: Chiamata Diretta (fallirà su GitHub Pages, ma utile in localhost)
+        response = await fetch(directApiUrl, {
+            method: 'GET',
+            headers: { 'x-apikey': vtKey }
+        });
+        if (!response.ok) throw new Error(`Direct Fetch HTTP ${response.status}`);
+    } catch (directError) {
+        console.warn("Direct API call failed (CORS expected), trying proxy...");
+        
+        try {
+            // Tentativo 2: Chiamata tramite proxy
+            response = await fetch(proxyApiUrl, {
+                method: 'GET',
+                headers: { 'x-apikey': vtKey }
+            });
+            if (!response.ok) throw new Error(`Proxy Fetch HTTP ${response.status}`);
+        } catch (proxyError) {
+            // Se entrambi falliscono, lancia l'errore per farlo gestire all'UI
+            console.error("Proxy also failed:", proxyError);
+            throw new Error("Cross-Origin Resource Sharing (CORS) or Cloudflare 403 Blocked the request.");
         }
-    });
-
-    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+    }
 
     const data = await response.json();
     const stats = data.data.attributes.last_analysis_stats;
 
     return `<strong>URL:</strong> ${targetUrl}<br>
             <strong>Malicious:</strong> ${stats.malicious} / ${stats.malicious + stats.harmless + stats.undetected}<br>
-            <strong>Status:</strong> ${stats.malicious > 0 ? '❌ Dangerous Link' : '✅ Clean Link'}`;
-}
+            <strong>Details:</strong> ${JSON.stringify(stats)}<br>
+            <strong>Status:</strong> ${stats.malicious > 0 ? '❌ Dangerous Link' : '✅ Clean Link'}`;}
