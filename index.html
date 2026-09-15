@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Phish Catcher - Catch a Phishing Email!</title>
+        <link rel="stylesheet" href="style.css">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+        <link rel="manifest" href="/site.webmanifest">
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>🎣 Phish Catcher</h1>
+                <h2>If you are not sure whether an email is a phishing attempt, use this tool to identify it.</h2>
+            </header>
+
+            <!-- API Keys Setup Section --> 
+            <section class="card">
+                <h3>1. Setup API Keys</h3>
+                <form id="setup-form">
+                    <div class="form-group">
+                        <label for="gemini-api">Enter a Gemini API Key (Required):</label>
+                        <input type="password" id="gemini-api" name="gemini-api" placeholder="AI Studio Key..." required>
+                        <small>Don't have one? <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Get a free Gemini API key here</a>.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vt-api">Enter a VirusTotal API Key (Optional):</label>
+                        <input type="password" id="vt-api" name="vt-api" placeholder="VirusTotal Key...">
+                        <small>Don't have one? <a href="https://www.virustotal.com/gui/user/username/apikey" target="_blank" rel="noopener noreferrer">Get a free VirusTotal API key here</a>.</small>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="submit" id="save-keys-btn">Save API Keys</button>
+                        <button type="button" id="delete-keys-btn">Delete API Keys</button>
+                    </div>
+                    <p id="keys-status" class="status-msg"></p>
+                </form>
+            </section>
+
+            <!-- Email Analysis Section -->
+            <section class="card">
+                <h3>2. Email Analysis Form</h3>
+                <form id="email-form">
+                    <div class="form-group">
+                        <label for="sender-email">Sender Email Address:</label>
+                        <input type="email" id="sender-email" name="sender-email" placeholder="e.g. security-alert@paypal-fake.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email-subject">Email Subject:</label>
+                        <input type="text" id="email-subject" name="email-subject" placeholder="e.g. Urgent: Account Suspended!" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email-body">Email Body (Paste content & suspicious links here):</label>
+                        <textarea id="email-body" name="email-body" rows="8" placeholder="Paste the full email text here..." required></textarea>
+                    </div>
+
+                    <button type="submit" id="analyze-btn">🔍 Analyze Email</button>
+                </form>
+            </section>
+
+            <!-- Results Section -->
+            <section id="results-section" class="card hidden">
+                <h3>3. Security Analysis Report</h3>
+                
+                <div id="verdict-badge" class="badge">Analyzing...</div>
+
+                <div class="result-box">
+                    <h4>🤖 Gemini AI Assessment:</h4>
+                    <div id="ai-output">Processing text analysis...</div>
+                </div>
+
+                <div class="result-box">
+                    <h4>🛡️ VirusTotal Intelligence:</h4>
+                    <div id="vt-output">Waiting for URL scan...</div>
+                </div>
+            </section>
+        </div>
+
+        <script src="script.js"></script>
+    </body>
+</html>
