@@ -139,14 +139,28 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
             const vtResult = await scanUrlVirusTotal(extractedUrls[0]);
             vtOutput.innerHTML = vtResult;
         } catch (err) {
-            // Messaggio di errore dettagliato in caso di fallimento multiplo (CORS + Proxy)
+            const targetUrl = extractedUrls[0];
+            const urlHash = await getSHA256(targetUrl);
+            const vtDirectLink = `https://www.virustotal.com/gui/url/${urlHash}`;
+
             vtOutput.innerHTML = `⚠️ <strong>Network/CORS Restriction Active:</strong><br>
-            Direct and Proxy API calls to VirusTotal were blocked (common in client-side serverless apps).<br>
-            <em>URL extracted for manual check:</em> <code>${extractedUrls[0]}</code><br>
-            <small style="color: var(--text-muted);">Technical details: ${err.message}</small>`;
+            Direct and Proxy API calls to VirusTotal were blocked.<br><br>
+            👉 <a href="${vtDirectLink}" target="_blank" rel="noopener noreferrer" style="color: var(--accent-color); font-weight: bold; text-decoration: underline;">
+                Scan manually on VirusTotal ↗
+            </a><br>
+            <small style="color: var(--text-muted); margin-top: 5px; display: inline-block;">Technical details: ${err.message}</small>`;
         }
     }
 });
+
+// Funzione: Calcolo HASH SHA-256 per l'URL diretto VirusTotal
+async function getSHA256(text) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 // Funzione: Chiamata API a Gemini
 async function analyzeWithGemini(sender, subject, body) {
@@ -196,7 +210,7 @@ async function scanUrlVirusTotal(targetUrl) {
     let response;
 
     try {
-        // Tentativo 1: Chiamata Diretta (fallirà su GitHub Pages, ma utile in localhost)
+        // Tentativo 1: Chiamata Diretta
         response = await fetch(directApiUrl, {
             method: 'GET',
             headers: { 'x-apikey': vtKey }
@@ -213,7 +227,6 @@ async function scanUrlVirusTotal(targetUrl) {
             });
             if (!response.ok) throw new Error(`Proxy Fetch HTTP ${response.status}`);
         } catch (proxyError) {
-            // Se entrambi falliscono, lancia l'errore per farlo gestire all'UI
             console.error("Proxy also failed:", proxyError);
             throw new Error("Cross-Origin Resource Sharing (CORS) or Cloudflare 403 Blocked the request.");
         }
@@ -225,4 +238,5 @@ async function scanUrlVirusTotal(targetUrl) {
     return `<strong>URL:</strong> ${targetUrl}<br>
             <strong>Malicious:</strong> ${stats.malicious} / ${stats.malicious + stats.harmless + stats.undetected}<br>
             <strong>Details:</strong> ${JSON.stringify(stats)}<br>
-            <strong>Status:</strong> ${stats.malicious > 0 ? '❌ Dangerous Link' : '✅ Clean Link'}`;}
+            <strong>Status:</strong> ${stats.malicious > 0 ? '❌ Dangerous Link' : '✅ Clean Link'}`;
+}
