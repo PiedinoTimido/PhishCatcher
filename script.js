@@ -191,7 +191,7 @@ function extractUrls(text) {
 // Funzione: Chiamata API a VirusTotal (URL Lookup)
 async function scanUrlVirusTotal(targetUrl) {
     const urlId = btoa(targetUrl).replace(/=/g, '');
-    const apiUrl = `https://www.virustotal.com/api/v3/urls/${urlId}`;
+    const apiUrl = `https://corsproxy.io/?` + encodeURIComponent(`https://www.virustotal.com/api/v3/urls/${urlId}`);
 
     const response = await fetch(apiUrl, {
         method: 'GET',
